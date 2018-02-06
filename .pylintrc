@@ -1,0 +1,13 @@
+[message control]
+disable =
+    broad-except,
+    design,
+    duplicate-code,
+    fixme,
+    global-statement,
+    invalid-name,
+    missing-docstring,
+
+[reports]
+output-format = parseable
+score = no
