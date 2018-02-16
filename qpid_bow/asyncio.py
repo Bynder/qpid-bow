@@ -51,7 +51,7 @@ class AsyncioReactorHandler:
         if selectable.deadline:
             logger.debug("Setting up schedule for %s", selectable)
             self.loop.call_later(selectable.deadline - time.time(),
-                                 selectable.expired())
+                                 selectable.expired)
 
     def _process(self):
         self._reactor.process()
