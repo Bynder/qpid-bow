@@ -10,6 +10,7 @@ clean:
 lint: clean
 	@echo ">> Linting"
 	@pylint qpid_bow
+	-@bandit -r .
 	@mypy --ignore-missing-imports qpid_bow
 
 .PHONY: test
