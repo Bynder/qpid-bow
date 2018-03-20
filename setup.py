@@ -27,6 +27,7 @@ requires = [
 
 test_requires = requires + [
     'astroid<1.6.0',
+    'bandit',
     'mypy==0.501',
     'pylint==1.7.0',
     'pytest',
