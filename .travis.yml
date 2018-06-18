@@ -13,7 +13,7 @@ before_install:
     - docker ps -a
 
 install:
-    - pip install .
+    - pip install .[test]
 
 script:
     - make lint
