@@ -38,6 +38,15 @@ Or add qpid-bow to your application's requirements using
 ``requirements.txt`` / ``setup.py`` / ``Pipfile``.
 
 
+Testing
+-------
+Qpid Bow's unittest need to connect to an actual Apache Qpid server for all
+tests to succeed. By default the tests assume a server exists on localhost.
+
+To specify the server address to use for tests use the environment variable:
+AMQP_TEST_SERVERS
+
+
 Available tools
 ---------------
 
@@ -76,5 +85,6 @@ Environment variables
 ---------------------
 
 AMQP_SERVERS - comma-separated list of main and failover servers to connect to
+AMQP_TEST_SERVERS - Same as AMQP_SERVERS, used solely for unittests
 
 example: ``AMQP_SERVERS=amqp://user:pass@192.168.1.1:5672,amqp://user:pass@192.168.1.2:5672``

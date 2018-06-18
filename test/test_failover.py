@@ -11,8 +11,10 @@ from qpid_bow.message import create_message
 from qpid_bow.receiver import Receiver
 from qpid_bow.sender import Sender
 
+from . import TEST_AMQP_SERVER
+
 CONFIG = {
-    'amqp_url': 'amqp://127.0.0.1:5432, amqp://127.0.0.1'
+    'amqp_url': f'amqp://127.0.0.1:5432, {TEST_AMQP_SERVER}'
 }
 
 

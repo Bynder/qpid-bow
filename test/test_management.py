@@ -14,8 +14,10 @@ from qpid_bow.management.queue import (
     delete_queue,
 )
 
+from . import TEST_AMQP_SERVER
+
 CONFIG = {
-    'amqp_url': 'amqp://127.0.0.1'
+    'amqp_url': TEST_AMQP_SERVER
 }
 
 
