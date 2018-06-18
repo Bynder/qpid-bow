@@ -9,7 +9,7 @@ from typing import Any, Callable, Coroutine, Optional, Type, Union
 from proton import Message, Delivery
 from proton.reactor import (
     Container,
-    Event,
+    EventBase,
     Task,
 )
 
@@ -130,12 +130,12 @@ class Receiver(Connector):
         self.receivers.clear()
         self.container = None
 
-    def on_transport_error(self, event: Event):
+    def on_transport_error(self, event: EventBase):
         super().on_transport_error(event)
         logger.warning("AMQP transport was closed, reconnecting...")
         self._restart_receivers()
 
-    def on_timer_task(self, event: Event):
+    def on_timer_task(self, event: EventBase):
         """Handles the event when a timer is finished.
 
         Args:
