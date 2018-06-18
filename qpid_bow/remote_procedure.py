@@ -3,10 +3,11 @@
 from datetime import timedelta
 from logging import getLogger
 from typing import Optional
+from warnings import warn
 
 from proton import Message
 
-from qpid_bow import RunState
+from qpid_bow import ReconnectStrategy, RunState
 from qpid_bow.receiver import (
     Receiver,
     ReceiveCallback,
@@ -26,10 +27,17 @@ class RemoteProcedure(Receiver):
         server_url: Comma-separated list of urls to connect to.
             Multiple can be specified for connection fallback, the first
             should be the primary server.
+        reconnect_strategy: Strategy to use on connection drop.
     """
-    def __init__(self, callback: ReceiveCallback,
-                 address: str, server_url: Optional[str] = None) -> None:
-        super().__init__(callback, '#', server_url)
+    def __init__(
+            self, callback: ReceiveCallback,
+            address: str, server_url: Optional[str] = None,
+            reconnect_strategy: ReconnectStrategy = ReconnectStrategy.failover
+    ) -> None:
+        super().__init__(callback, '#', server_url,
+                         reconnect_strategy=reconnect_strategy)
+        if self.reconnect_strategy == ReconnectStrategy.backoff:
+            warn("Using ReconnectStrategy.backoff may cause Sender to block")
         self.send_address = address
         self.message: Message
 
@@ -41,7 +49,7 @@ class RemoteProcedure(Receiver):
         """
         self.message = message
 
-        # Retriever.receive() triggers container run with timeout
+        # Receiver.receive() triggers container run with timeout
         self.receive(timeout)
 
     def on_start(self, event):
@@ -51,7 +59,7 @@ class RemoteProcedure(Receiver):
 
     def on_sendable(self, event):
         if not self.reply_to:
-            # Wait untill receiver has been set up
+            # Wait until receiver has been set up
             return
 
         self.message.reply_to = self.reply_to
