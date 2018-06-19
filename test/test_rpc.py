@@ -8,9 +8,10 @@ from qpid_bow.config import configure
 from qpid_bow.message import create_message
 from qpid_bow.remote_procedure import RemoteProcedure
 
+from . import TEST_AMQP_SERVER
 
 CONFIG = {
-    'amqp_url': 'amqp://127.0.0.1'
+    'amqp_url': TEST_AMQP_SERVER
 }
 
 
