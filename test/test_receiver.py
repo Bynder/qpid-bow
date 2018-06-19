@@ -1,6 +1,6 @@
 from datetime import timedelta
 from functools import partial
-from unittest import TestCase
+from unittest import TestCase, skip
 from uuid import uuid4
 
 from proton import Message
@@ -12,8 +12,10 @@ from qpid_bow.message import create_message
 from qpid_bow.receiver import Receiver
 from qpid_bow.sender import Sender
 
+from . import TEST_AMQP_SERVER
+
 CONFIG = {
-    'amqp_url': 'amqp://127.0.0.1'
+    'amqp_url': TEST_AMQP_SERVER
 }
 
 
@@ -29,6 +31,7 @@ class TestReceiver(TestCase):
         self.receiver = Receiver(
             partial(TestReceiver.handle_received_message, self), queue_address)
 
+    @skip
     def handle_received_message(self, message: Message):
         self.received_messages.append(message)
         return True
@@ -37,6 +40,12 @@ class TestReceiver(TestCase):
         with self.assertRaises(TimeoutReached):
             self.receiver.receive(timeout=timedelta(seconds=2))
         self.assertEqual(len(self.received_messages), 0)
+
+    def test_add_address_duplicate(self):
+        second_queue_address = uuid4().hex
+        self.receiver.add_address(second_queue_address)
+        self.receiver.add_address(second_queue_address)
+        self.assertEqual(len(self.receiver.receivers), 2)
 
     def test_multi_receive(self):
         expected_messages = [create_message(b'FOOBAR'),

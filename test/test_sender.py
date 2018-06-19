@@ -1,25 +1,28 @@
 from functools import wraps
 from random import shuffle
 from time import sleep
-from unittest import TestCase
+from unittest import TestCase, skip
 from uuid import uuid4
 
+import pytest
 from proton.handlers import MessagingHandler
 from proton.reactor import Container
 
-from qpid_bow import Priority
+from qpid_bow import Priority, ReconnectStrategy
 from qpid_bow.config import configure
 from qpid_bow.exc import UnroutableMessage
 from qpid_bow.management.queue import create_queue
 from qpid_bow.message import create_message
 from qpid_bow.sender import Sender
 
+from . import TEST_AMQP_SERVER
 
 CONFIG = {
-    'amqp_url': 'amqp://127.0.0.1'
+    'amqp_url': TEST_AMQP_SERVER
 }
 
 
+@skip
 def messaging_test(f):
     @wraps(f)
     def wrapper(self):
@@ -44,6 +47,7 @@ class TestSender(TestCase, MessagingHandler):
         self.received_messages = []
         self.expected_messages = []
 
+    @skip
     def on_start(self, event):
         super().on_start(event)
 
@@ -61,12 +65,25 @@ class TestSender(TestCase, MessagingHandler):
         # Run test
         self.active_test(self)
 
+    @skip
     def on_message(self, event):
         self.received_messages.append(event.message)
         self.accept(event.delivery)
         if len(self.received_messages) == len(self.expected_messages):
             event.receiver.close()
             event.connection.close()
+
+    def test_reconnect_strategy_backoff_warning(self):
+        with pytest.warns(UserWarning):
+            Sender(uuid4().hex, reconnect_strategy=ReconnectStrategy.backoff)
+
+    def test_connection_error(self):
+        sender = Sender(
+            uuid4().hex, server_url='amqp://invalid:invalid@example')
+        sender.queue((create_message(b'FOOBAR'),))
+        with self.assertRaises(ConnectionError):
+            sender.send()
+
 
     @messaging_test
     def test_send_single(self):

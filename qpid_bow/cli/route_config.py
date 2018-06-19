@@ -38,7 +38,7 @@ def route_config_parser(action):
 
 def route_config(args):
     try:
-        route_mapping = yaml.load(args.file)
+        route_mapping = yaml.safe_load(args.file)
     except yaml.YAMLError:
         print("Invalid YAML config mapping\n")
         args.parser.print_help()

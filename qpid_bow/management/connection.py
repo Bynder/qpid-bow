@@ -39,7 +39,7 @@ def get_connection_ids(server_url: Optional[str] = None) -> list:
     return connections
 
 
-def kill_connection(connection_id: str, server_url: Optional[str] = None):
+def kill_connection(connection_id: dict, server_url: Optional[str] = None):
     """Kill connection on AMQP broker.
 
     Args:

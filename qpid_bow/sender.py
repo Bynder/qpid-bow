@@ -3,14 +3,11 @@
 import logging
 from typing import Iterable, Optional
 from uuid import uuid4
+from warnings import warn
 
 from proton import Message
-from proton.reactor import Container
 
-from qpid_bow import (
-    Connector,
-    RunState,
-)
+from qpid_bow import Connector, ReconnectStrategy, RunState
 from qpid_bow.exc import UnroutableMessage
 
 logger = logging.getLogger()
@@ -24,11 +21,17 @@ class Sender(Connector):
         server_url: Comma-separated list of urls to connect to.
             Multiple can be specified for connection fallback, the first
             should be the primary server.
+        reconnect_strategy: Strategy to use on connection drop.
     """
 
-    def __init__(self, address: Optional[str] = None,
-                 server_url: Optional[str] = None) -> None:
-        super().__init__(server_url)
+    def __init__(
+            self, address: Optional[str] = None,
+            server_url: Optional[str] = None,
+            reconnect_strategy: ReconnectStrategy = ReconnectStrategy.failover
+    ) -> None:
+        super().__init__(server_url, reconnect_strategy=reconnect_strategy)
+        if self.reconnect_strategy == ReconnectStrategy.backoff:
+            warn("Using ReconnectStrategy.backoff may cause Sender to block")
         self.address = address
         self.send_queue: list = []
 
@@ -45,7 +48,7 @@ class Sender(Connector):
         """Send queued messages."""
         # Give control to container to do our sending
         if self.send_queue:
-            Container(self).run()
+            self.run()
 
     def on_start(self, event):
         super().on_start(event)
