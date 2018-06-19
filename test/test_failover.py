@@ -1,6 +1,6 @@
 from datetime import timedelta
 from functools import partial
-from unittest import TestCase
+from unittest import TestCase, skip
 from uuid import uuid4
 
 from proton import Message
@@ -31,6 +31,7 @@ class TestFailoverReceiver(TestCase):
             partial(TestFailoverReceiver.handle_received_message, self),
             queue_address)
 
+    @skip
     def handle_received_message(self, message: Message):
         self.received_messages.append(message)
         return True

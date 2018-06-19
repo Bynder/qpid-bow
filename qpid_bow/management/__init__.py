@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Mapping, Optional
+from typing import Any, Mapping, Optional
 
 from proton import Message
 
@@ -50,9 +50,9 @@ def create_QMF2_query(package_name: str, class_name: str) -> Message:
     return message
 
 
-def create_QMF2_method_invoke(object_id: str,
+def create_QMF2_method_invoke(object_id: dict,
                               method_name: str,
-                              arguments: Mapping[str, str]) -> Message:
+                              arguments: Mapping[str, Any]) -> Message:
     """Factory function to create a QMF2 object method call.
 
     Args:

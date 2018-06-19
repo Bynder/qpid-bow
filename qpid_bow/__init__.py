@@ -1,12 +1,13 @@
 """Qpid-bow client framework."""
 
+from asyncio import Event as AsyncioEvent
 from enum import Enum, auto
 from logging import getLogger
-from typing import Any, Optional, Type
+from typing import Optional, Type
 
 from proton import Connection
 from proton.handlers import MessagingHandler
-from proton.reactor import Container, EventBase
+from proton.reactor import Container, Backoff, EventBase
 
 from qpid_bow.config import (
     config,
@@ -37,6 +38,21 @@ class RunState(Enum):
     stopped = auto()
     stopping = auto()
     started = auto()
+    reconnecting = auto()
+    connected = auto()
+    failed = auto()
+
+
+class NonBackoff(Backoff):
+    def next(self):
+        return self.delay
+
+
+class ReconnectStrategy(Enum):
+    """Define possible reconnect strategies."""
+    backoff = Backoff()
+    failover = NonBackoff()
+    disabled = False
 
 
 class Connector(MessagingHandler):
@@ -47,14 +63,22 @@ class Connector(MessagingHandler):
             Multiple can be specified for connection fallback, the first
             should be the primary server.
         container_class: Qpid Proton reactor container-class to use.
+        reconnect_strategy: Strategy to use on connection drop.
     """
-    def __init__(self, server_url: Optional[str] = None,
-                 container_class: Type[Container] = Container) -> None:
+    def __init__(
+            self, server_url: Optional[str] = None,
+            container_class: Type[Container] = Container,
+            reconnect_strategy: ReconnectStrategy = ReconnectStrategy.backoff
+        ) -> None:
         super().__init__(auto_accept=False)
         self.server_urls = get_urls(server_url)
 
         self.run_state = RunState.stopped
+        self.failover_count = 0
         self.container_class = container_class
+        self.reconnect_strategy = reconnect_strategy
+        self.close_event = AsyncioEvent()
+        self.close_event.set()
         self.connection: Connection
         self.container: Container
 
@@ -79,7 +103,27 @@ class Connector(MessagingHandler):
         if self.run_state == RunState.stopped:
             logger.debug("Starting %s", self)
             self.run_state = RunState.started
-            self.connection = event.container.connect(urls=self.server_urls)
+            self.connection = event.container.connect(
+                urls=self.server_urls, reconnect=self.reconnect_strategy.value)
+
+    def on_connection_opened(self, event: EventBase):  # pylint: disable=unused-argument
+        self.run_state = RunState.connected
+        self.close_event.clear()
+
+    def on_transport_error(self, event: EventBase):
+        super().on_transport_error(event)
+        if self.reconnect_strategy == ReconnectStrategy.backoff:
+            logger.warning("AMQP transport was closed, reconnecting...")
+            self.run_state = RunState.reconnecting
+            return
+        elif self.reconnect_strategy == ReconnectStrategy.failover:
+            self.failover_count += 1
+            if (len(self.server_urls) * 2) > self.failover_count:
+                return
+
+        self.run_state = RunState.failed
+        condition = event.transport.condition
+        raise ConnectionError(f"{condition.name} {condition.description}")
 
     def on_connection_closed(self, event: EventBase):
         """Handle close connection event.
@@ -89,6 +133,10 @@ class Connector(MessagingHandler):
         """
         logger.debug("Connection %s confirmed closed", self)
         self.run_state = RunState.stopped
+        self.close_event.set()
+
+    async def wait_closed(self):
+        await self.close_event.wait()
 
     def run(self):
         """Start this Connector and setup connection to the AMQP server."""
@@ -97,7 +145,9 @@ class Connector(MessagingHandler):
 
     def stop(self):
         """Stop connection to the AMQP server."""
-        if self.run_state != RunState.started:
+        if self.run_state not in (RunState.started,
+                                  RunState.connected,
+                                  RunState.reconnecting):
             return
 
         logger.debug("Connection %s closing", self)
@@ -106,4 +156,7 @@ class Connector(MessagingHandler):
         self.connection = None
 
         # Give control to container to cleanup
-        Container(self).run()
+        try:
+            self.container.touch()
+        except (AttributeError, NameError):
+            self.container.process()

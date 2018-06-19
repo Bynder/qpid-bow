@@ -17,6 +17,9 @@ def session_outgoing_parser(action):
                         help="amqp:// or amqps:// URL to the broker")
     parser.add_argument('-f', '--filter', type=re.compile, required=False,
                         default=None, help="Filter by regex pattern")
+    parser.add_argument('-p', '--pretty',
+                        required=False, default=False,
+                        action='store_true', help="Pretty output")
 
 
 def session_outgoing(args):
@@ -34,7 +37,8 @@ def session_outgoing(args):
         if args.filter and not args.filter.match(address_name):
             continue
 
-        print('╓\n║ Address: {}'.format(address_name))
+        if args.pretty:
+            print('╓\n║ Address: {}'.format(address_name))
 
         num_sessions = len(outgoing_sessions)
         for index, outgoing_session in enumerate(outgoing_sessions):
@@ -43,9 +47,14 @@ def session_outgoing(args):
             if outgoing_session['session_id'] not in sessions:
                 continue
             session = sessions[outgoing_session['session_id']]
-            print('║ {}{}'.format(line_char,
-                                  session['address']))
-            print('║ {}\t Transfers: {}'.format(
-                '' if last_item else '┃',
-                outgoing_session['transfers']))
-        print('╙')
+
+            if args.pretty:
+                print('║ {}{}'.format(line_char,
+                                      session['address']))
+                print('║ {}\t Transfers: {}'.format(
+                    '' if last_item else '┃',
+                    outgoing_session['transfers']))
+            else:
+                print(session['address'])
+        if args.pretty:
+            print('╙')

@@ -2,18 +2,19 @@
 
 import asyncio
 import logging
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 from inspect import signature
-from typing import Any, Callable, Coroutine, Optional, Type, Union
+from typing import Any, Awaitable, Callable, Optional, Type, Union
+from uuid import uuid4
 
-from proton import Message, Delivery
+from proton import Delivery, Message
 from proton.reactor import (
     Container,
     EventBase,
     Task,
 )
 
-from qpid_bow import Connector, RunState
+from qpid_bow import Connector, ReconnectStrategy, RunState
 from qpid_bow.exc import (
     QMF2Exception,
     RetriableMessage,
@@ -26,7 +27,8 @@ logger = logging.getLogger()
 ReceiveCallback = Union[
     Callable[[Message], bool],
     Callable[[Message, Delivery], bool],
-    Callable[[Message], Coroutine[Any, Any, bool]],
+    Callable[[Message], Awaitable[bool]],
+    Callable[[Message, Delivery], Awaitable[bool]],
 ]
 
 
@@ -41,15 +43,19 @@ class Receiver(Connector):
             should be the primary server.
         limit: Limit the amount of messages to receive.
         container_class: Qpid Proton reactor container-class to use.
+        reconnect_strategy: Strategy to use on connection drop.
     """
-    # pylint: disable=too-many-arguments
-    def __init__(self, callback: ReceiveCallback,
-                 address: Optional[str] = None,
-                 server_url: Optional[str] = None,
-                 limit: Optional[int] = None,
-                 container_class: Type[Any] = Container) -> None:
+    def __init__(
+            self, callback: ReceiveCallback,
+            address: Optional[str] = None,
+            server_url: Optional[str] = None,
+            limit: Optional[int] = None,
+            container_class: Type[Any] = Container,
+            reconnect_strategy: ReconnectStrategy = ReconnectStrategy.backoff
+    ) -> None:
         super().__init__(server_url=server_url,
-                         container_class=container_class)
+                         container_class=container_class,
+                         reconnect_strategy=reconnect_strategy)
         self.limit = limit
         self.received = 0
         self.timeout: Optional[timedelta] = None
@@ -59,9 +65,8 @@ class Receiver(Connector):
 
         self.callback = callback
         self.advanced_callback = len(signature(callback).parameters) == 2
-        self.timeout_reached: bool
-        self.start_time: Optional[datetime]
         self.timeout_reached = False
+        self.start_time: Optional[datetime]
 
         if address:
             self.receivers[address] = None
@@ -109,13 +114,17 @@ class Receiver(Connector):
             receiver = self.container.create_receiver(self.connection,
                                                       dynamic=True)
         else:
-            receiver = self.container.create_receiver(self.connection,
-                                                      address)
+            receiver = self.container.create_receiver(
+                self.connection,
+                address,
+                # Add UUID to name to prevent add/remove link race condition
+                name=f'{self.connection.container}-{address}-{uuid4()}')
         self.receivers[address] = receiver
 
     def _restart_receivers(self):
         addresses = list(self.receivers.keys())
         self.receivers.clear()
+        logger.debug("Starting receivers for addresses %s", addresses)
         for address in addresses:
             self._start_receiver(address)
 
@@ -130,10 +139,12 @@ class Receiver(Connector):
         self.receivers.clear()
         self.container = None
 
-    def on_transport_error(self, event: EventBase):
-        super().on_transport_error(event)
-        logger.warning("AMQP transport was closed, reconnecting...")
-        self._restart_receivers()
+    def on_connection_opened(self, event: EventBase):
+        previous_state = self.run_state
+        super().on_connection_opened(event)
+        if previous_state == RunState.reconnecting:
+            logger.debug("AMQP transport reinstated, restarting receivers...")
+            self._restart_receivers()
 
     def on_timer_task(self, event: EventBase):
         """Handles the event when a timer is finished.
@@ -141,10 +152,15 @@ class Receiver(Connector):
         Args:
             event: Reactor timer task event object.
         """
-        if self.run_state != RunState.started:
+        if self.run_state not in (RunState.started,
+                                  RunState.connected,
+                                  RunState.reconnecting):
             return
 
-        if (datetime.utcnow() - self.start_time) > self.timeout:
+        if self.timeout is None or self.start_time is None:
+            self.timeout_reached = True
+            self.stop()
+        elif (datetime.utcnow() - self.start_time) > self.timeout:
             self.timeout_reached = True
             self.stop()
         else:
@@ -159,29 +175,23 @@ class Receiver(Connector):
             self._restart_receivers()
 
     def on_message(self, event):
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # There is no event loop in current thread
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        handle_message_task = loop.create_task(self._handle_message(event))
-        if not loop.is_running():
-            loop.run_until_complete(handle_message_task)
-
-    async def _handle_message(self, event):
         if not self.start_time:
             # Eagerly got more messages then we're interested in, release
             self.release(event.delivery)
             return
 
         try:
-            if self.advanced_callback:
-                success = self.callback(event.message, event.delivery)
+            if asyncio.iscoroutinefunction(self.callback):
+                loop = asyncio.get_event_loop()
+                if not loop.is_running():
+                    success = loop.run_until_complete(
+                        self.handle_async_message(event))
+                else:
+                    success = asyncio.ensure_future(
+                        self.handle_async_message(event), loop=loop)
             else:
-                success = self.callback(event.message)
-            if asyncio.iscoroutine(success):
-                success = await success
+                success = self.handle_message(event)
+
             if success:
                 self.accept(event.delivery)
             else:
@@ -209,3 +219,15 @@ class Receiver(Connector):
             self.received += 1
             if self.received == self.limit:
                 self.stop()
+
+    def handle_message(self, event):
+        if self.advanced_callback:
+            return self.callback(event.message, event.delivery)
+
+        return self.callback(event.message)
+
+    async def handle_async_message(self, event):
+        if self.advanced_callback:
+            return await self.callback(event.message, event.delivery)
+
+        return await self.callback(event.message)
