@@ -4,9 +4,9 @@ from enum import Enum, auto
 from logging import getLogger
 from typing import Any, Optional, Type
 
-from proton import Connection, Event
+from proton import Connection
 from proton.handlers import MessagingHandler
-from proton.reactor import Container
+from proton.reactor import Container, EventBase
 
 from qpid_bow.config import (
     config,
@@ -69,7 +69,7 @@ class Connector(MessagingHandler):
         except (AttributeError, NameError):
             pass
 
-    def on_start(self, event: Event):
+    def on_start(self, event: EventBase):
         """Handle start event.
 
         Args:
@@ -81,7 +81,7 @@ class Connector(MessagingHandler):
             self.run_state = RunState.started
             self.connection = event.container.connect(urls=self.server_urls)
 
-    def on_connection_closed(self, event: Event):
+    def on_connection_closed(self, event: EventBase):
         """Handle close connection event.
 
         Args:
