@@ -40,6 +40,9 @@ setup(
     packages=find_packages(),
     install_requires=requires,
     tests_require=test_requires,
+    extras_require={
+        'test': test_requires
+    },
     include_package_data=True,
     zip_safe=True,
     entry_points={
