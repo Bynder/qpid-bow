@@ -42,6 +42,7 @@ class RunState(Enum):
     connected = auto()
     failed = auto()
 
+
 class NonBackoff(Backoff):
     def next(self):
         return self.delay
