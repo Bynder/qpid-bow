@@ -60,7 +60,7 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
-        'Programming Language :: Python3',
+        'Programming Language :: Python :: 3',
         'Topic :: Software Development',
         'Topic :: Utilities',
     ],
