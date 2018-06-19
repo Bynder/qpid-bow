@@ -16,7 +16,11 @@ lint: clean
 .PHONY: test
 test: clean
 	@echo ">> Testing"
-	@pytest
+	@pytest test \
+		--cov-report term-missing:skip-covered \
+		--cov-report xml \
+		--cov qpid_bow \
+		--cov test
 
 .PHONY: dist
 dist: clean

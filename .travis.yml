@@ -1,0 +1,20 @@
+sudo: required
+
+services:
+    - docker
+
+language: python
+python:
+    - "3.6"
+
+before_install:
+    - docker pull scholzj/qpid-cpp
+    - docker run -d -p 5671:5671 -p 5672:5672 scholzj/qpid-cpp
+    - docker ps -a
+
+install:
+    - pip install .[test]
+
+script:
+    - make lint
+    - make test
