@@ -1,6 +1,5 @@
 from datetime import timedelta
-from functools import partial
-from unittest import TestCase, skip
+from unittest import TestCase
 from uuid import uuid4
 
 from proton import Message
@@ -26,15 +25,15 @@ class TestReceiver(TestCase):
 
         queue_address = uuid4().hex
         create_queue(queue_address, durable=False,
-                     auto_delete=True, priorities=5)
+                     auto_delete=True, priorities=5,
+                     extra_properties={'qpid.auto_delete_timeout': 10})
         self.sender = Sender(queue_address)
-        self.receiver = Receiver(
-            partial(TestReceiver.handle_received_message, self), queue_address)
 
-    @skip
-    def handle_received_message(self, message: Message):
-        self.received_messages.append(message)
-        return True
+        def handle_received_message(message: Message):
+            self.received_messages.append(message)
+            return True
+
+        self.receiver = Receiver(handle_received_message, queue_address)
 
     def test_receive_timeout(self):
         with self.assertRaises(TimeoutReached):
@@ -55,18 +54,19 @@ class TestReceiver(TestCase):
         self.sender.send()
 
         second_queue_address = uuid4().hex
-        create_queue(second_queue_address, durable=False, auto_delete=True)
+        create_queue(second_queue_address, durable=False, auto_delete=True,
+                     extra_properties={'qpid.auto_delete_timeout': 10})
         self.receiver.add_address(second_queue_address)
 
         second_sender = Sender(second_queue_address)
         second_sender.queue(expected_messages[-1:])
         second_sender.send()
 
-        self.receiver.receive(timeout=timedelta(seconds=2))
-        for received, expected in zip(self.received_messages,
-                                      expected_messages):
-            self.assertEqual(received.id, expected.id)
-            self.assertEqual(received.body, expected.body)
+        try:
+            self.receiver.receive(timeout=timedelta(seconds=2))
+        except TimeoutReached:
+            pass
+        self.assertEqual(len(self.received_messages), len(expected_messages))
 
     def test_receive(self):
         expected_messages = (create_message(b'FOOBAR'),
@@ -75,7 +75,11 @@ class TestReceiver(TestCase):
         self.sender.queue(expected_messages)
         self.sender.send()
 
-        self.receiver.receive(timeout=timedelta(seconds=2))
+        try:
+            self.receiver.receive(timeout=timedelta(seconds=2))
+        except TimeoutReached:
+            pass
+        self.assertEqual(len(self.received_messages), len(expected_messages))
         for received, expected in zip(self.received_messages,
                                       expected_messages):
             self.assertEqual(received.id, expected.id)
@@ -90,14 +94,21 @@ class TestReceiver(TestCase):
 
         # Should first receive only 2
         self.receiver.limit = 2
-        self.receiver.receive(timeout=timedelta(seconds=2))
+        try:
+            self.receiver.receive(timeout=timedelta(seconds=2))
+        except TimeoutReached:
+            pass
+        self.assertEqual(len(self.received_messages), 2)
         for received, expected in zip(self.received_messages,
                                       expected_messages[:-1]):
             self.assertEqual(received.id, expected.id)
             self.assertEqual(received.body, expected.body)
 
         # Receive remaining message
-        self.receiver.receive(timeout=timedelta(seconds=2))
+        try:
+            self.receiver.receive(timeout=timedelta(seconds=2))
+        except TimeoutReached:
+            pass
         for received, expected in zip(self.received_messages,
                                       expected_messages):
             self.assertEqual(received.id, expected.id)
