@@ -135,7 +135,9 @@ class Receiver(Connector):
 
         self.received = 0
         self.start_time = None
-        self.receivers.clear()
+        for address in self.receivers:
+            self.receivers[address].close()
+            self.receivers[address] = None
 
         super().stop()
 
