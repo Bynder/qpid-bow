@@ -1,47 +1,18 @@
-from datetime import timedelta
-from functools import wraps
 from random import shuffle
 from time import sleep
-from unittest import TestCase
 from uuid import uuid4
 
 import pytest
-from proton import Message
 
 from qpid_bow import Priority, ReconnectStrategy
-from qpid_bow.config import configure
-from qpid_bow.exc import TimeoutReached, UnroutableMessage
-from qpid_bow.management.queue import create_queue
+from qpid_bow.exc import UnroutableMessage
 from qpid_bow.message import create_message
 from qpid_bow.sender import Sender
-from qpid_bow.receiver import Receiver
 
-from . import TEST_AMQP_SERVER
-
-CONFIG = {
-    'amqp_url': TEST_AMQP_SERVER
-}
+from . import MessagingTestBase
 
 
-class TestSender(TestCase):
-    def setUp(self):
-        configure(CONFIG)
-        self.received_messages = []
-        self.expected_messages = []
-
-        queue_address = uuid4().hex
-        create_queue(queue_address, durable=False,
-                     auto_delete=True, priorities=10,
-                     extra_properties={'qpid.auto_delete_timeout': 10})
-
-        self.sender = Sender(queue_address)
-
-        def handle_received_message(message: Message):
-            self.received_messages.append(message)
-            return True
-
-        self.receiver = Receiver(handle_received_message, queue_address)
-
+class TestSender(MessagingTestBase):
     def test_reconnect_strategy_backoff_warning(self):
         with pytest.warns(UserWarning):
             Sender(uuid4().hex, reconnect_strategy=ReconnectStrategy.backoff)
@@ -55,22 +26,9 @@ class TestSender(TestCase):
 
     def test_send_properties(self):
         message = create_message(b'FOOBAR', {'foo': 'bar', 'baz': 123})
-        self.expected_messages.append(message)
-        self.sender.queue((message,))
-        self.sender.send()
-
-        try:
-            self.receiver.receive(timeout=timedelta(seconds=2))
-        except TimeoutReached:
-            pass
-
-        self.assertEqual(len(self.received_messages),
-                         len(self.expected_messages))
-        for received, expected in zip(self.received_messages,
-                                      self.expected_messages):
-            self.assertEqual(received.id, expected.id)
-            self.assertEqual(received.body, expected.body)
-            self.assertEqual(received.properties, expected.properties)
+        self.send_messages((message,))
+        self.receive_messages()
+        self.check_messages()
 
     def test_send_priorities(self):
         messages_to_send = []
@@ -84,44 +42,26 @@ class TestSender(TestCase):
 
         # Send messages with priority in random order
         shuffle(messages_to_send)
-        self.sender.queue(messages_to_send)
-        self.sender.send()
+        self.send_messages(messages_to_send)
 
         # Should be received in order
-        self.expected_messages.extend(
-            sorted(messages_to_send, reverse=True,
-                   key=lambda message: message.priority))
+        self.expected_messages = sorted(messages_to_send, reverse=True,
+                                        key=lambda message: message.priority)
 
         # Give Qpid a bit of time for ordering if needed
         sleep(3)
+        self.receive_messages()
 
-        try:
-            self.receiver.receive(timeout=timedelta(seconds=2))
-        except TimeoutReached:
-            pass
-
-        self.assertEqual(len(self.received_messages),
-                         len(self.expected_messages))
-        for received, expected in zip(self.received_messages,
-                                      self.expected_messages):
-            self.assertEqual(received.body, expected.body)
+        # Don't check identity, because only the priority order is preserved
+        self.check_messages(check_identity=False)
 
     def test_addressless_routable(self):
         message = create_message(b'FOOBAR')
         message.address = self.sender.address
-        self.expected_messages.append(message)
-
         self.sender.address = None
-        self.sender.queue((message,))
-        self.sender.send()
-
-        try:
-            self.receiver.receive(timeout=timedelta(seconds=2))
-        except TimeoutReached:
-            pass
-
-        self.assertEqual(self.received_messages[0].id,
-                         self.expected_messages[0].id)
+        self.send_messages((message,))
+        self.receive_messages()
+        self.check_messages()
 
     def test_addressless_unroutable(self):
         with self.assertRaises(UnroutableMessage):
