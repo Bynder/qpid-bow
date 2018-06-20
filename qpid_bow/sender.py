@@ -60,7 +60,7 @@ class Sender(Connector):
         if not self.connection:
             return
 
-        message = self.send_queue.pop()
+        message = self.send_queue.pop(0)
         message.id = uuid4()
         # TODO SHA
         event.sender.send(message)

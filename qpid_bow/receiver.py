@@ -129,15 +129,17 @@ class Receiver(Connector):
             self._start_receiver(address)
 
     def stop(self):
-        super().stop()
         if self.timeout_task:
             self.timeout_task.cancel()
             self.timeout_task = None
 
         self.received = 0
         self.start_time = None
-        self.receivers.clear()
-        self.container = None
+        for address in self.receivers:
+            self.receivers[address].close()
+            self.receivers[address] = None
+
+        super().stop()
 
     def on_connection_opened(self, event: EventBase):
         previous_state = self.run_state
