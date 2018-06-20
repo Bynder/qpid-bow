@@ -1,6 +1,5 @@
 from datetime import timedelta
-from functools import partial
-from unittest import TestCase, skip
+from unittest import TestCase
 from uuid import uuid4
 
 from proton import Message
@@ -25,16 +24,14 @@ class TestFailoverReceiver(TestCase):
 
         queue_address = uuid4().hex
         create_queue(queue_address, durable=False,
-                     auto_delete=True, priorities=5)
+                     auto_delete=True, priorities=5,
+                     extra_properties={'qpid.auto_delete_timeout': 10})
         self.sender = Sender(queue_address)
-        self.receiver = Receiver(
-            partial(TestFailoverReceiver.handle_received_message, self),
-            queue_address)
 
-    @skip
-    def handle_received_message(self, message: Message):
-        self.received_messages.append(message)
-        return True
+        def handle_received_message(message: Message):
+            self.received_messages.append(message)
+            return True
+        self.receiver = Receiver(handle_received_message, queue_address)
 
     def test_failover_receive(self):
         expected_messages = (create_message(b'FOOBAR'),
@@ -43,6 +40,7 @@ class TestFailoverReceiver(TestCase):
         self.sender.queue(expected_messages)
         self.sender.send()
 
+        self.receiver.limit = 3
         self.receiver.receive(timeout=timedelta(seconds=2))
         for received, expected in zip(self.received_messages,
                                       expected_messages):
