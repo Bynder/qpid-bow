@@ -1,19 +1,20 @@
+from datetime import timedelta
 from functools import wraps
 from random import shuffle
 from time import sleep
-from unittest import TestCase, skip
+from unittest import TestCase
 from uuid import uuid4
 
 import pytest
-from proton.handlers import MessagingHandler
-from proton.reactor import Container
+from proton import Message
 
 from qpid_bow import Priority, ReconnectStrategy
 from qpid_bow.config import configure
-from qpid_bow.exc import UnroutableMessage
+from qpid_bow.exc import TimeoutReached, UnroutableMessage
 from qpid_bow.management.queue import create_queue
 from qpid_bow.message import create_message
 from qpid_bow.sender import Sender
+from qpid_bow.receiver import Receiver
 
 from . import TEST_AMQP_SERVER
 
@@ -22,56 +23,24 @@ CONFIG = {
 }
 
 
-@skip
-def messaging_test(f):
-    @wraps(f)
-    def wrapper(self):
-        self.active_test = f
-        Container(self).run()
-        for received, expected in zip(self.received_messages,
-                                      self.expected_messages):
-            self.assertEqual(received.id, expected.id)
-            self.assertEqual(received.body, expected.body)
-            self.assertEqual(received.properties, expected.properties)
-
-    return wrapper
-
-
-class TestSender(TestCase, MessagingHandler):
-    def __init__(self, methodName):
-        TestCase.__init__(self, methodName)
-        MessagingHandler.__init__(self)
-
+class TestSender(TestCase):
     def setUp(self):
         configure(CONFIG)
         self.received_messages = []
         self.expected_messages = []
 
-    @skip
-    def on_start(self, event):
-        super().on_start(event)
-
         queue_address = uuid4().hex
-
-        # Setup a dynamic receiver for receiving test results
         create_queue(queue_address, durable=False,
-                     auto_delete=True, priorities=5)
-        conn = event.container.connect(CONFIG['amqp_url'])
-        self.receiver = event.container.create_receiver(conn, queue_address)
+                     auto_delete=True, priorities=10,
+                     extra_properties={'qpid.auto_delete_timeout': 10})
 
-        # Setup sender for tests with dynamic address
         self.sender = Sender(queue_address)
 
-        # Run test
-        self.active_test(self)
+        def handle_received_message(message: Message):
+            self.received_messages.append(message)
+            return True
 
-    @skip
-    def on_message(self, event):
-        self.received_messages.append(event.message)
-        self.accept(event.delivery)
-        if len(self.received_messages) == len(self.expected_messages):
-            event.receiver.close()
-            event.connection.close()
+        self.receiver = Receiver(handle_received_message, queue_address)
 
     def test_reconnect_strategy_backoff_warning(self):
         with pytest.warns(UserWarning):
@@ -84,30 +53,25 @@ class TestSender(TestCase, MessagingHandler):
         with self.assertRaises(ConnectionError):
             sender.send()
 
-
-    @messaging_test
-    def test_send_single(self):
-        message = create_message(b'FOOBAR')
-        self.expected_messages.append(message)
-
-        self.sender.queue((message,))
-        self.sender.send()
-
-    @messaging_test
-    def test_send_multiple(self):
-        messages = (create_message(b'FOOBAR'), create_message(b'FOOBAR2'))
-        self.expected_messages.extend(messages)
-        self.sender.queue(messages)
-        self.sender.send()
-
-    @messaging_test
     def test_send_properties(self):
         message = create_message(b'FOOBAR', {'foo': 'bar', 'baz': 123})
         self.expected_messages.append(message)
         self.sender.queue((message,))
         self.sender.send()
 
-    @messaging_test
+        try:
+            self.receiver.receive(timeout=timedelta(seconds=2))
+        except TimeoutReached:
+            pass
+
+        self.assertEqual(len(self.received_messages),
+                         len(self.expected_messages))
+        for received, expected in zip(self.received_messages,
+                                      self.expected_messages):
+            self.assertEqual(received.id, expected.id)
+            self.assertEqual(received.body, expected.body)
+            self.assertEqual(received.properties, expected.properties)
+
     def test_send_priorities(self):
         messages_to_send = []
         for i in range(0, 30):
@@ -125,12 +89,23 @@ class TestSender(TestCase, MessagingHandler):
 
         # Should be received in order
         self.expected_messages.extend(
-            sorted(messages_to_send, key=lambda message: message.priority))
+            sorted(messages_to_send, reverse=True,
+                   key=lambda message: message.priority))
 
         # Give Qpid a bit of time for ordering if needed
         sleep(3)
 
-    @messaging_test
+        try:
+            self.receiver.receive(timeout=timedelta(seconds=2))
+        except TimeoutReached:
+            pass
+
+        self.assertEqual(len(self.received_messages),
+                         len(self.expected_messages))
+        for received, expected in zip(self.received_messages,
+                                      self.expected_messages):
+            self.assertEqual(received.body, expected.body)
+
     def test_addressless_routable(self):
         message = create_message(b'FOOBAR')
         message.address = self.sender.address
@@ -139,6 +114,14 @@ class TestSender(TestCase, MessagingHandler):
         self.sender.address = None
         self.sender.queue((message,))
         self.sender.send()
+
+        try:
+            self.receiver.receive(timeout=timedelta(seconds=2))
+        except TimeoutReached:
+            pass
+
+        self.assertEqual(self.received_messages[0].id,
+                         self.expected_messages[0].id)
 
     def test_addressless_unroutable(self):
         with self.assertRaises(UnroutableMessage):
