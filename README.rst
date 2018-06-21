@@ -4,7 +4,7 @@ qpid-bow
 Qpid Bow is a higher level client framework for Python 3.6+ to communicate with
 AMQP/Qpid servers combined with a set of CLI tools to manage a Qpid server.
 
-With it's CLI tools Qpid Bow provides the missing tooling you always wanted
+With its CLI tools Qpid Bow provides the missing tooling you always wanted
 to administrate or debug your Qpid-based AMQP stack. Providing you with the
 power to manage queues and exchanges, setup and save routing using YAML files
 and various other tools.
@@ -40,7 +40,7 @@ Or add qpid-bow to your application's requirements using
 
 Testing
 -------
-Qpid Bow's unittest need to connect to an actual Apache Qpid server for all
+Qpid Bow's unit tests need to connect to an actual Apache Qpid server for all
 tests to succeed. By default the tests assume a server exists on localhost.
 
 To specify the server address to use for tests use the environment variable:
