@@ -25,7 +25,7 @@ test: clean
 .PHONY: dist
 dist: clean
 	@echo ">> Building"
-	@python setup.py bdist_wheel
+	@python setup.py sdist bdist_wheel
 	@echo "!! Build ready"
 
 .PHONY: docs
