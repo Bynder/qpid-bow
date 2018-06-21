@@ -4,7 +4,7 @@ qpid-bow
 Qpid Bow is a higher level client framework for Python 3.6+ to communicate with
 AMQP/Qpid servers combined with a set of CLI tools to manage a Qpid server.
 
-With it's CLI tools Qpid Bow provides the missing tooling you always wanted
+With its CLI tools Qpid Bow provides the missing tooling you always wanted
 to administrate or debug your Qpid-based AMQP stack. Providing you with the
 power to manage queues and exchanges, setup and save routing using YAML files
 and various other tools.
@@ -40,11 +40,11 @@ Or add qpid-bow to your application's requirements using
 
 Testing
 -------
-Qpid Bow's unittest need to connect to an actual Apache Qpid server for all
+Qpid Bow's unit tests need to connect to an actual Apache Qpid server for all
 tests to succeed. By default the tests assume a server exists on localhost.
 
 To specify the server address to use for tests use the environment variable:
-AMQP_TEST_SERVERS
+``AMQP_TEST_SERVERS``
 
 
 Available tools
@@ -52,39 +52,40 @@ Available tools
 
 **Queue**
 
-* qb queue create - Create queues.
-* qb queue delete - Delete queues.
-* qb queue purge - Purge messages from a queue.
-* qb queue reroute - Reroute messages from a queue to an exchange.
-* qb queue stats - Print queue usage statistics and active number of messages.
+* ``qb queue create`` - Create queues.
+* ``qb queue delete`` - Delete queues.
+* ``qb queue purge`` - Purge messages from a queue.
+* ``qb queue reroute`` - Reroute messages from a queue to an exchange.
+* ``qb queue stats`` - Print queue usage statistics and active number of messages.
 
 
 **Message**
 
-* qb message receive - Receive messages from a queue or an exchange.
-* qb message send - Send messages to a queue or an exchange.
+* ``qb message receive`` - Receive messages from a queue or an exchange.
+* ``qb message send`` - Send messages to a queue or an exchange.
 
 
 **Route**
 
-* qb route dump - View & save exchange -> queue routing.
-* qb route config - Setup exchange -> queue routing from a saved file.
+* ``qb route dump`` - View & save exchange -> queue routing.
+* ``qb route config`` - Setup exchange -> queue routing from a saved file.
 
 
 **Connection**
 
-* qb connection kill - Kill connections from the server.
+* ``qb connection kill`` - Kill connections from the server.
 
 
 **Session**
 
-* qb session outgoing - List outgoing sessions from the server.
+* ``qb session outgoing`` - List outgoing sessions from the server.
 
 
 Environment variables
 ---------------------
 
-AMQP_SERVERS - comma-separated list of main and failover servers to connect to
-AMQP_TEST_SERVERS - Same as AMQP_SERVERS, used solely for unittests
+``AMQP_SERVERS`` - comma-separated list of main and failover servers to connect to
+
+``AMQP_TEST_SERVERS`` - Same as ``AMQP_SERVERS``, used solely for unittests
 
 example: ``AMQP_SERVERS=amqp://user:pass@192.168.1.1:5672,amqp://user:pass@192.168.1.2:5672``
