@@ -5,6 +5,9 @@ qpid-bow
     :target: https://travis-ci.org/Bynder/qpid-bow
 .. image:: https://coveralls.io/repos/github/Bynder/qpid-bow/badge.svg?branch=master
     :target: https://coveralls.io/github/Bynder/qpid-bow?branch=master
+.. image:: //readthedocs.org/projects/qpid-bow/badge/?version=latest
+    :target: https://qpid-bow.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
 Qpid Bow is a higher level client framework for Python 3.6+ to communicate with
 AMQP/Qpid servers combined with a set of CLI tools to manage a Qpid server.
