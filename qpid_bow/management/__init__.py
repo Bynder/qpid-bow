@@ -127,6 +127,7 @@ def get_object(package_name: str, class_name: str, object_name: str,
 
 def get_broker_id(server_url: Optional[str] = None) -> dict:
     """Get the full internal broker ID object.
+
     Args:
         server_url: Comma-separated list of urls to connect to.
             Multiple can be specified for connection fallback, the first
