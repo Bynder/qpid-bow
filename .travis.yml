@@ -14,7 +14,11 @@ before_install:
 
 install:
     - pip install .[test]
+    - pip install coveralls
 
 script:
     - make lint
     - make test
+
+after_success:
+    - coveralls
