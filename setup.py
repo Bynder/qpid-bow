@@ -34,6 +34,12 @@ test_requires = requires + [
     'pytest-cov',
 ]
 
+doc_requires = requires + [
+    'sphinx',
+    'sphinx-rtd-theme',
+    'sphinxcontrib-asyncio',
+]
+
 setup(
     name='qpid-bow',
     version=build_version,
@@ -41,7 +47,8 @@ setup(
     install_requires=requires,
     tests_require=test_requires,
     extras_require={
-        'test': test_requires
+        'test': test_requires,
+        'docs': doc_requires,
     },
     include_package_data=True,
     zip_safe=True,
