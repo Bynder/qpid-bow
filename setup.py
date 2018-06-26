@@ -60,7 +60,7 @@ setup(
     long_description=README,
     author='Bynder',
     author_email='info@bynder.com',
-    url='https://www.bynder.com/',
+    url='https://github.com/Bynder/qpid-bow/',
     license='MIT',
     keywords='bynder',
     classifiers=[
