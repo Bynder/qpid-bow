@@ -22,7 +22,7 @@ with open(os.path.join(here, 'README.rst')) as f:
 
 requires = [
     'python-qpid-proton>=0.18.1',
-    'PyYAML>=3.12'
+    'PyYAML>=4.1'
 ]
 
 test_requires = requires + [
