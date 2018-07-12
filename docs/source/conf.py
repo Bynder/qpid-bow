@@ -15,7 +15,7 @@ copyright = '2018, Bynder B.V.'
 author = 'Bynder B.V.'
 
 version = '1.0'  # The short X.Y version.
-release = '1.0.0'  # The full version, including alpha/beta/rc tags.
+release = '1.0.2'  # The full version, including alpha/beta/rc tags.
 
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
