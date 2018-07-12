@@ -144,8 +144,7 @@ class Connector(MessagingHandler):
             self.close_event.set()
 
     async def wait_closed(self):
-        if self.close_event:
-            await self.close_event.wait()
+        await self.close_event.wait()
 
     def run(self):
         """Start this Connector and setup connection to the AMQP server."""
