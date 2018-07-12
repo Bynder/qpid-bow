@@ -77,8 +77,14 @@ class Connector(MessagingHandler):
         self.failover_count = 0
         self.container_class = container_class
         self.reconnect_strategy = reconnect_strategy
-        self.close_event = AsyncioEvent()
-        self.close_event.set()
+        try:
+            self.close_event = AsyncioEvent()
+        except RuntimeError:
+            self.close_event = None
+
+        if self.close_event:
+            self.close_event.set()
+
         self.connection: Connection
         self.container: Container
 
@@ -108,7 +114,8 @@ class Connector(MessagingHandler):
 
     def on_connection_opened(self, event: EventBase):  # pylint: disable=unused-argument
         self.run_state = RunState.connected
-        self.close_event.clear()
+        if self.close_event:
+            self.close_event.clear()
 
     def on_transport_error(self, event: EventBase):
         super().on_transport_error(event)
@@ -133,7 +140,8 @@ class Connector(MessagingHandler):
         """
         logger.debug("Connection %s confirmed closed", self)
         self.run_state = RunState.stopped
-        self.close_event.set()
+        if self.close_event:
+            self.close_event.set()
 
     async def wait_closed(self):
         await self.close_event.wait()
