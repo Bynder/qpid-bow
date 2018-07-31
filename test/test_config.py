@@ -1,3 +1,4 @@
+from contextlib import suppress
 from os import environ
 from unittest import TestCase
 
@@ -11,10 +12,16 @@ class TestGetURLs(TestCase):
     def tearDown(self):
         config.clear()
         config.update(self.old_config)
-        environ['AMQP_SERVERS'] = self.old_env
+        if self.old_env:
+            environ['AMQP_SERVERS'] = self.old_env
+        else:
+            with suppress(KeyError):
+                del environ['AMQP_SERVERS']
 
     def test_no_config(self):
-        del environ['AMQP_SERVERS']
+        with suppress(KeyError):
+            del environ['AMQP_SERVERS']
+
         with self.assertRaises(ValueError):
             get_urls()
 
