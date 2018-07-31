@@ -104,6 +104,7 @@ When using Qpid Bow as a library, one can pass in config using a dict to:
 ``qpid_bow.config.configure``
 
 The dict can contain the following entries:
+
 * ``amqp_url`` - Comma-separated list of main and failover servers to connect to.
 * ``username`` - Username to use when no username is provided in the URL.
 * ``password`` - Password to use when no password is provided in the URL.
