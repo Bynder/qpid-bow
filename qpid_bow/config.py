@@ -33,17 +33,17 @@ def process_url(url: str) -> str:
     Returns:
         str: Processed URL.
     """
-    splited_url = urlsplit(url.strip())
-    if splited_url.scheme == 'amqp+ssl':
-        splited_url = splited_url._replace(scheme='amqps')
+    split_url = urlsplit(url.strip())
+    if split_url.scheme == 'amqp+ssl':
+        split_url = split_url._replace(scheme='amqps')
 
-    if ((not splited_url.username or not splited_url.password) and
+    if ((not split_url.username or not split_url.password) and
             'username' in config and 'password' in config):
         user_pass = f"{config['username']}:{config['password']}@"
-        new_netloc = user_pass + splited_url.netloc
-        splited_url = splited_url._replace(netloc=new_netloc)
+        new_netloc = user_pass + split_url.netloc
+        split_url = split_url._replace(netloc=new_netloc)
 
-    return urlunsplit(splited_url)
+    return urlunsplit(split_url)
 
 
 def get_urls(argument_urls: Optional[str] = None) -> List[str]:
