@@ -89,11 +89,31 @@ Available tools
 * ``qb session outgoing`` - List outgoing sessions from the server.
 
 
-Environment variables
----------------------
+Configuration & Environment variables
+-------------------------------------
+Several options exist to configure Qpid Bow. In order of preference:
 
-``AMQP_SERVERS`` - comma-separated list of main and failover servers to connect to
+**Pass in arguments**
+One can always override the used server URL using arguments:
 
-``AMQP_TEST_SERVERS`` - Same as ``AMQP_SERVERS``, used solely for unittests
+* For the CLI tools, use the ``--broker-url`` command line argument.
+* For the library pass in the keyword argument ``server_url``.
+
+**Configure using a dict**
+When using Qpid Bow as a library, one can pass in config using a dict to:
+``qpid_bow.config.configure``
+
+The dict can contain the following entries:
+
+* ``amqp_url`` - Comma-separated list of main and failover servers to connect to.
+* ``username`` - Username to use when no username is provided in the URL.
+* ``password`` - Password to use when no password is provided in the URL.
+
+**Environment variables**
+The easiest way to configure Qpid Bow's tools and library is to use environment variables.
+These variables can be added to your shell's profile and will automatically get picked up.
+
+* ``AMQP_SERVERS`` - Comma-separated list of main and failover servers to connect to.
+* ``AMQP_TEST_SERVERS`` - Same as ``AMQP_SERVERS``, used solely for unittests.
 
 example: ``AMQP_SERVERS=amqp://user:pass@192.168.1.1:5672,amqp://user:pass@192.168.1.2:5672``
